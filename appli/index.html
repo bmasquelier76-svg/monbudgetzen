@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Sanctuarium</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Bangers&family=Patrick+Hand&display=swap" rel="stylesheet">
+    <style>
+        :root { --primary: #b91c1c; --text: #f8fafc; }
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        
+        body { 
+            font-family: 'Patrick Hand', cursive; color: var(--text); 
+            background: #000 url('gost-house_976586-9372.jpg') no-repeat center center fixed;
+            background-size: cover;
+            padding: calc(60px + env(safe-area-inset-top)) 15px 120px 15px;
+            min-height: 100vh;
+        }
+
+        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: -1; }
+
+        header { background: rgba(0,0,0,0.8); border: 2px solid var(--primary); padding: 15px; border-radius: 16px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+
+        /* ZONE DE SAUVEGARDE INTERNE */
+        #internalSaveBox {
+            display: none; background: #facc15; color: #000; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 3px solid #fff;
+        }
+        #internalSaveBox textarea { width: 100%; height: 100px; margin: 10px 0; background: #000; color: #4ade80; border: none; padding: 8px; font-family: monospace; font-size: 12px; border-radius: 6px; }
+
+        .copy-btn { width: 100%; background: #16a34a; color: #fff; border: none; padding: 10px; border-radius: 8px; font-weight: bold; font-size: 15px; margin-bottom: 8px; cursor: pointer; }
+        .close-btn { width: 100%; background: #000; color: #fff; border: none; padding: 8px; border-radius: 5px; font-weight: bold; cursor: pointer; }
+
+        .summary-grid { display: flex; gap: 10px; margin-bottom: 20px; }
+        .summary-card { flex: 1; background: rgba(15, 23, 42, 0.9); padding: 12px; border-radius: 12px; border: 1px solid #334155; text-align: center; }
+        .summary-val { font-family: 'Bangers', cursive; font-size: 22px; }
+        
+        .cat-card { background: rgba(15, 23, 42, 0.9); border-radius: 16px; border: 1px solid #334155; margin-bottom: 15px; overflow: hidden; }
+        .cat-header { padding: 10px; background: rgba(185, 28, 28, 0.3); font-family: 'Cinzel', serif; font-size: 14px; color: var(--primary); display: flex; justify-content: space-between; }
+        
+        .item-row { display: flex; align-items: center; padding: 12px; border-bottom: 1px solid #334155; }
+        .check { width: 22px; height: 22px; border: 2px solid var(--primary); border-radius: 6px; margin-right: 12px; flex-shrink: 0; }
+        .done .check { background: var(--primary); position: relative; }
+        .done .check::after { content: '✓'; color: white; position: absolute; left: 4px; top: -2px; }
+
+        input { background: #000; color: #fff; border: 1px solid #334155; padding: 8px; border-radius: 6px; }
+        .btn { background: var(--primary); color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+
+        .nav-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #000; border-top: 2px solid var(--primary); padding: 15px 10px calc(25px + env(safe-area-inset-bottom)); display: flex; justify-content: space-around; z-index: 100; }
+        .nav-btn { background: none; border: none; color: #555; font-family: 'Bangers'; font-size: 18px; cursor: pointer; }
+        .nav-btn.active { color: var(--primary); }
+
+        /* Toast notification */
+        #toast {
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-80px);
+            background: #16a34a; color: #fff; padding: 12px 24px; border-radius: 20px;
+            font-weight: bold; z-index: 9999; transition: transform 0.3s ease;
+            white-space: nowrap;
+        }
+        #toast.show { transform: translateX(-50%) translateY(0); }
+    </style>
+</head>
+<body>
+    <div class="overlay"></div>
+    <div id="toast">✅ Code copié !</div>
+
+    <header>
+        <h1 style="font-family: 'Cinzel'; font-size: 18px; color: var(--primary);">SANCTUARIUM</h1>
+        <input type="number" id="soldeInit" step="0.01" style="width: 100px; text-align: right;" oninput="update()">
+    </header>
+
+    <div id="internalSaveBox">
+        <b style="font-family: 'Cinzel';">VOTRE SCEAU DE SAUVEGARDE :</b><br>
+        <small>Appuie sur le bouton vert pour copier le code</small>
+        <textarea id="saveCodeArea" readonly></textarea>
+        <button class="copy-btn" onclick="copyCode()">📋 COPIER LE CODE</button>
+        <button class="close-btn" onclick="document.getElementById('internalSaveBox').style.display='none'">FERMER ×</button>
+    </div>
+
+    <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+        <button class="btn" style="flex: 1; background: #facc15; color: #000;" onclick="showInternalSave()">💾 SAUVEGARDER</button>
+        <button class="btn" style="flex: 1; background: #334155;" onclick="importData()">📂 CHARGER</button>
+    </div>
+
+    <div class="summary-grid">
+        <div class="summary-card"><small>ORACLE</small><br><div class="summary-val" id="sPrev">0€</div></div>
+        <div class="summary-card"><small>RÉEL</small><br><div class="summary-val" id="sReel" style="color: var(--primary);">0€</div></div>
+    </div>
+
+    <div id="view-budget">
+        <div id="catsGrid"></div>
+    </div>
+
+    <div id="view-tx" style="display:none; padding-bottom: 50px;">
+        <div class="cat-card" style="padding:15px;">
+            <input type="text" id="txLib" placeholder="Lieu..." style="width:100%; margin-bottom:10px;">
+            <input type="number" id="txAmt" placeholder="Montant" style="width:100%; margin-bottom:10px;">
+            <button class="btn" style="width:100%" onclick="addTx()">INSCRIRE</button>
+        </div>
+        <div id="txList"></div>
+    </div>
+
+    <nav class="nav-bar">
+        <button class="nav-btn active" id="btnB" onclick="nav('budget')">DONJON</button>
+        <button class="nav-btn" id="btnT" onclick="nav('tx')">REGISTRE</button>
+    </nav>
+
+<script>
+const KEY = 'sanct_netlify_v2';
+let store = JSON.parse(localStorage.getItem(KEY)) || {
+    solde: 3000, transactions: [],
+    cats: [
+        {id:'m', label:'Maison', icon:'🏰', items:[]},
+        {id:'c', label:'Crédits', icon:'📜', items:[]},
+        {id:'v', label:'Transport', icon:'🐎', items:[]},
+        {id:'a', label:'Abos', icon:'📱', items:[]},
+        {id:'s', label:'Santé', icon:'🧪', items:[]},
+        {id:'o', label:'Autres', icon:'🕯️', items:[]}
+    ]
+};
+
+function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(store)); } catch(e) {}
+}
+
+function update() {
+    store.solde = parseFloat(document.getElementById('soldeInit').value) || 0;
+    save();
+    let tF = 0, tP = 0;
+    store.cats.forEach(c => {
+        let ct = 0;
+        c.items.forEach(it => { tF += it.amt; ct += it.amt; if(it.done) tP += it.amt; });
+        const e = document.getElementById('ct-'+c.id); if(e) e.textContent = ct.toFixed(0)+'€';
+    });
+    const tCB = store.transactions.reduce((s,t) => s + t.amt, 0);
+    document.getElementById('sPrev').textContent = (store.solde - tF).toFixed(0) + '€';
+    document.getElementById('sReel').textContent = (store.solde - tP - tCB).toFixed(2) + '€';
+}
+
+function nav(v) {
+    document.getElementById('view-budget').style.display = (v === 'budget' ? 'block' : 'none');
+    document.getElementById('view-tx').style.display = (v === 'tx' ? 'block' : 'none');
+    document.getElementById('btnB').classList.toggle('active', v === 'budget');
+    document.getElementById('btnT').classList.toggle('active', v === 'tx');
+}
+
+function render() {
+    const grid = document.getElementById('catsGrid'); grid.innerHTML = '';
+    store.cats.forEach(cat => {
+        const div = document.createElement('div'); div.className = 'cat-card';
+        div.innerHTML = `<div class="cat-header"><span>${cat.icon} ${cat.label}</span><span id="ct-${cat.id}"></span></div>
+            ${cat.items.map((it, i) => `<div class="item-row ${it.done ? 'done' : ''}" onclick="toggle('${cat.id}', ${i})"><div class="check"></div><span style="flex:1; font-size:18px;">${it.l}</span><span style="font-weight:bold; margin-right:10px;">${it.amt}€</span><button onclick="event.stopPropagation(); del('${cat.id}', ${i})" style="background:none; border:none; color:#444; font-size:20px; cursor:pointer;">×</button></div>`).join('')}
+            <div style="display:flex; gap:5px; padding:10px; background:rgba(0,0,0,0.2);"><input type="text" id="nl-${cat.id}" placeholder="Nom" style="flex:2"><input type="number" id="na-${cat.id}" placeholder="€" style="flex:1"><button class="btn" onclick="add('${cat.id}')">+</button></div>`;
+        grid.appendChild(div);
+    });
+}
+
+function toggle(cId, i) { store.cats.find(c=>c.id===cId).items[i].done = !store.cats.find(c=>c.id===cId).items[i].done; render(); update(); }
+function add(cId) { 
+    const l = document.getElementById('nl-'+cId), a = document.getElementById('na-'+cId);
+    if(l.value && a.value) { store.cats.find(c=>c.id===cId).items.push({l:l.value, amt:parseFloat(a.value), done:false}); render(); update(); }
+}
+function del(cId, i) { if(confirm("Supprimer ?")) { store.cats.find(c=>c.id===cId).items.splice(i,1); render(); update(); } }
+
+function addTx() {
+    const l = document.getElementById('txLib'), a = document.getElementById('txAmt');
+    if(l.value && a.value) { store.transactions.unshift({lib:l.value, amt:parseFloat(a.value)}); l.value=''; a.value=''; renderTx(); update(); }
+}
+function renderTx() {
+    document.getElementById('txList').innerHTML = store.transactions.map(t => `<div style="display:flex; justify-content:space-between; padding:12px; border-bottom:1px solid #333; background:rgba(0,0,0,0.4);"><span>${t.lib}</span><span style="color:var(--primary); font-weight:bold;">-${t.amt.toFixed(2)}€</span></div>`).join('');
+}
+
+// SAUVEGARDE — VERSION CORRIGÉE
+function showInternalSave() {
+    save(); // s'assurer que tout est sauvegardé d'abord
+    const code = btoa(unescape(encodeURIComponent(JSON.stringify(store))));
+    document.getElementById('saveCodeArea').value = code;
+    const box = document.getElementById('internalSaveBox');
+    box.style.display = 'block';
+    // Scroll vers la box après un court délai pour laisser le DOM se mettre à jour
+    setTimeout(() => box.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+}
+
+function copyCode() {
+    const area = document.getElementById('saveCodeArea');
+    const code = area.value;
+    if (!code) return;
+
+    // Méthode 1 : API Clipboard moderne
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(code)
+            .then(() => showToast('✅ Code copié !'))
+            .catch(() => fallbackCopy(area));
+    } else {
+        fallbackCopy(area);
+    }
+}
+
+function fallbackCopy(area) {
+    // Méthode 2 : sélection manuelle (fonctionne partout dont iOS Safari)
+    area.focus();
+    area.select();
+    area.setSelectionRange(0, 99999); // pour iOS
+    try {
+        document.execCommand('copy');
+        showToast('✅ Code copié !');
+    } catch(e) {
+        showToast('⚠️ Sélectionne le texte vert manuellement');
+    }
+}
+
+function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function importData() { 
+    const c = prompt("COLLE TON CODE ICI :"); 
+    if(c) { 
+        try { 
+            store = JSON.parse(decodeURIComponent(escape(atob(c.trim())))); 
+            save();
+            render(); renderTx(); update(); 
+            showToast('✅ Données chargées !');
+        } catch(e) { alert("Code invalide"); } 
+    }
+}
+
+document.getElementById('soldeInit').value = store.solde;
+render(); renderTx(); update();
+</script>
+</body>
+</html>
